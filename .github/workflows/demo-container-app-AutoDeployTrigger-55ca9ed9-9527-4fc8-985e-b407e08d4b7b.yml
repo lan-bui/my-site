@@ -4,24 +4,46 @@ name: Trigger auto deployment for demo-container-app
 on:
   # Automatically trigger it when detected changes in repo
   push:
-    branches: 
-      [ main ]
+    branches: [main]
     paths:
-    - '**'
-    - '.github/workflows/demo-container-app-AutoDeployTrigger-55ca9ed9-9527-4fc8-985e-b407e08d4b7b.yml'
+      - "**"
+      - ".github/workflows/demo-container-app-AutoDeployTrigger-55ca9ed9-9527-4fc8-985e-b407e08d4b7b.yml"
 
-  # Allow manual trigger 
-  workflow_dispatch:      
+  # Allow manual trigger
+  workflow_dispatch:
 
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
-    permissions: 
+    permissions:
       id-token: write #This is required for requesting the OIDC JWT Token
 
     steps:
       - name: Checkout to the branch
         uses: actions/checkout@v2
+
+      - name: Create and populate .env file
+        env:
+          AZURE_OPENAI_SERVICE: ${{ secrets.AZURE_OPENAI_SERVICE }}
+          AZURE_OPENAI_KEY: ${{ secrets.AZURE_OPENAI_KEY }}
+          AZURE_OPENAI_CHAT_MODEL: ${{ secrets.AZURE_OPENAI_CHAT_MODEL }}
+          AZURE_OPENAI_CHAT_DEPLOYMENT: ${{ secrets.AZURE_OPENAI_CHAT_DEPLOYMENT }}
+        run: |
+          touch .env
+          echo UPLOAD_FOLDER="./data-upload" >> .env
+          echo ALLOWED_EXTENSIONS={'png', 'jpg', 'jpeg', 'gif'} >> .env
+          echo AZURE_OPENAI_SERVICE="$AZURE_OPENAI_SERVICE" >> .env
+          echo AZURE_OPENAI_KEY="$AZURE_OPENAI_KEY" >> .env
+          echo AZURE_OPENAI_API_VERSION="2023-07-01-preview" >> .env
+          echo AZURE_OPENAI_CHAT_MODEL="$AZURE_OPENAI_CHAT_MODEL" >> .env
+          echo AZURE_OPENAI_CHAT_DEPLOYMENT="$AZURE_OPENAI_CHAT_DEPLOYMENT" >> .env
+
+          echo "cat .env"
+          cat .env
+
+          echo "ls -a ."
+          ls -a .
+        shell: bash
 
       - name: Azure Login
         uses: azure/login@v1
@@ -33,7 +55,7 @@ jobs:
       - name: Build and push container image to registry
         uses: azure/container-apps-deploy-action@v1
         with:
-          appSourcePath: ${{ github.workspace }} 
+          appSourcePath: ${{ github.workspace }}
           registryUrl: swoaidemoregistry.azurecr.io
           registryUsername: ${{ secrets.DEMOCONTAINERAPP_REGISTRY_USERNAME }}
           registryPassword: ${{ secrets.DEMOCONTAINERAPP_REGISTRY_PASSWORD }}
@@ -41,5 +63,3 @@ jobs:
           resourceGroup: container-app-rg
           imageToBuild: swoaidemoregistry.azurecr.io/demo-container-app:${{ github.sha }}
           dockerfilePath: Dockerfile
-
-
